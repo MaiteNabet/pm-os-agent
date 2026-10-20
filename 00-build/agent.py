@@ -47,7 +47,7 @@ except ImportError:
 # --- Bounds (your M5 deliverable: tune these and justify them) ----------------
 MODEL = os.environ.get("CORTEX_MODEL", "gpt-4o-mini")
 MAX_ITERATIONS = int(os.environ.get("CORTEX_MAX_ITERATIONS", "8"))
-MAX_REVISIONS = int(os.environ.get("CORTEX_MAX_REVISIONS", "2"))  # kept as a bound; a critic fail is a comment, not an exit
+MAX_REVISIONS = int(os.environ.get("CORTEX_MAX_REVISIONS", "2"))  # redrafts after a critic fail; the next fail escalates
 COST_CAP_USD = float(os.environ.get("CORTEX_COST_CAP_USD", "0.50"))
 MAX_QUEUE_ITEMS = int(os.environ.get("CORTEX_MAX_QUEUE_ITEMS", "10"))
 # Rough $ per 1M tokens for your chosen model, set to match its pricing.
@@ -172,6 +172,7 @@ def run(which: str = "happy") -> None:
     source_log: list[str] = [task["body"]]
     last_draft = ""
     pull_failures = 0
+    revisions = 0
 
     for step in range(1, MAX_ITERATIONS + 1):
         if bounds.over_cap():
@@ -235,18 +236,35 @@ def run(which: str = "happy") -> None:
             continue
 
         if kind == "queued":
-            banner("CRITIC, comment only (a fail does not block this stop)")
+            banner("CRITIC, independent check (own context: draft + source pull)")
             verdict = review(client, MODEL, proposed, "\n".join(source_log))
             bounds.cost += (verdict["_usage"]["prompt"] * PRICE_IN
                             + verdict["_usage"]["completion"] * PRICE_OUT) / 1_000_000
             print(json.dumps({k: v for k, v in verdict.items() if k != "_usage"}, indent=2))
-            banner(f"HITL CHECKPOINT, status update + any proposed stories queued for "
-                   f"your review. Nothing posted, no commitments made. "
-                   f"Critic said {verdict.get('verdict')}, and that does not change "
-                   f"this stop. Run cost ≈ ${bounds.cost:.4f}")
-            emit_deliverable(which, proposed, outcome="queued",
-                             reason="draft queued for review", cost=bounds.cost)
-            return
+            if verdict.get("verdict") == "pass":
+                banner(f"HITL CHECKPOINT, status update + any proposed stories queued for "
+                       f"your review. Nothing posted, no commitments made. "
+                       f"Run cost ≈ ${bounds.cost:.4f}")
+                emit_deliverable(which, proposed, outcome="queued",
+                                 reason="critic passed; draft queued for review",
+                                 cost=bounds.cost)
+                return
+            if revisions >= MAX_REVISIONS:
+                reason = (f"critic rejected the draft after {MAX_REVISIONS} redrafts: "
+                          f"{verdict.get('reasons')}")
+                banner(f"REVISION CAP hit ({MAX_REVISIONS} redrafts). Escalating to a human. "
+                       f"Run cost ≈ ${bounds.cost:.4f}")
+                emit_deliverable(which, proposed, outcome="escalated",
+                                 reason=reason, cost=bounds.cost)
+                return
+            revisions += 1
+            print(f"\n-> critic rejected; redraft {revisions}/{MAX_REVISIONS}")
+            messages.append(msg)
+            messages.append({"role": "user", "content":
+                             "The independent validator rejected that draft. Revise it. "
+                             "Do not post, and do not add a date or other commitment. "
+                             f"Reasons: {verdict.get('reasons')}"})
+            continue
 
         reason = proposed.strip().splitlines()[-1] if proposed.strip() else kind
         if kind == "stuck":
