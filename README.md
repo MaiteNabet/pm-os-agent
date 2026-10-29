@@ -2,9 +2,9 @@
 
 > A chief-of-staff, an orchestrated swarm of agents that triages a PM task, pulls internal state, and preps a status update plus a story batch, so the team approves instead of assembling from scratch.
 
-_Jane Doe · Agentic Loops for PMs Cohort · June 2026_
+_Maite Nabet · Agentic Loops for PMs Cohort · October 2026_
 
-Repo: https://github.com/your-handle/pm-os-agent
+Repo: https://github.com/MaiteNabet/pm-os-agent
 
 This repo is my final project for the Agentic Loops for PMs Certification, **Cortex**. Each module’s artifact lives in its own folder; this README is the dashboard and the pitch.
 
