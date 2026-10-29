@@ -2,7 +2,7 @@
 
 > A chief-of-staff, an orchestrated swarm of agents that triages a PM task, pulls internal state, and preps a status update plus a story batch, so the team approves instead of assembling from scratch.
 
-_Maite Nabet · Agentic Loops for PMs Cohort · October 2026_
+_Maïté Nabet · Agentic Loops for PMs Cohort · October 2026_
 
 Repo: https://github.com/MaiteNabet/pm-os-agent
 
